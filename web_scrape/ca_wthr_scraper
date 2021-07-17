@@ -1,0 +1,157 @@
+#! /usr/bin/env bash
+
+# pass a range of years or a single year
+
+SINGYR=1           # int: single year to download
+STRTYR=1           # int: start year of download range
+ENDYR=1            # int: end year of download range
+CURYR=`date +"%Y"` # int: year of current date
+
+
+usage() {           # function: print usage info/formatting
+    echo "Usage: $0 [ -r START_YEAR END_YEAR ] [ -s SINGLE_YEAR ]" 1>&2 
+}
+
+exit_abnormal() {   # function: print usage info and exit with error
+    usage
+    exit 1
+}
+
+
+while getopts "rs:" opts; do  # loop: iterate over options
+                                # options s and r take arguments
+    case "${opts}" in
+	r)
+	    # sneaky multi arg hack of getopts
+	    # var OPTIND holds the index of the _next_ parameter: ${2}
+	    # therefore  "\${$((OPTIND)}" will evaluate to value held in ${2}
+	    
+	    eval "STRTYR=\${$((OPTIND))}"
+            eval "ENDYR=\${$((OPTIND+1))}"
+
+	    # check bounds: STRTYR & ENDYR are ints, STRTYR > ENDYR
+	    re_isanum='^[0-9]+$'            # regex: match whole numbers
+	    if ! [[ $STRTYR =~ $re_isanum ]] || ! [[ $ENDYR =~ $re_isanum ]] || \
+		    [ "$STRTYR" -ge "$ENDYR" ] || [ "$STRTYR" -lt 1900 ] || \
+	       [ "$ENDYR" -gt "$CURYR" ];
+	    then
+		echo "START_YEAR and END_YEAR must be integers"
+		echo "START_YEAR < END_YEAR"
+		echo "START_YEAR > 1900"
+		echo "END_YEAR  <= " "$CURYR"
+
+		exit_abnormal
+	    fi
+	    ;;
+	s)
+	    SINGYR=${OPTARG}
+
+	    # check bounds: STRTYR & ENDYR are ints, STRTYR > ENDYR
+	    re_isanum='^[0-9]+$'            # regex: match whole numbers
+	    if ! [[ $SINGYR =~ $re_isanum ]] || ! [[ $SINGYR =~ $re_isanum ]] || \
+		    [ "$SINGYR" -lt 1900 ] || [ "$SINGYR" -gt "$CURYR" ];
+	    then
+		echo "SINGLE_YEAR  must be integers"
+		echo "SINGLE_YEAR >  1900"
+		echo "SINGLE_YEAR <= " "$CURYR" 
+
+		exit_abnormal
+	    fi
+
+	    ;;
+	
+	*)
+	    # other (unknown) raise error
+	    exit_abnormal
+	    ;;
+    esac
+done
+
+
+
+
+
+
+# single file case
+if [ "$SINGYR" -ne "1" ]; then
+    echo single year $SINGYR
+    # TODO: add code for single year downloading and filtering
+
+    # download and store weather data into a temp directory
+    mkdir tmp_data
+    eval wget -q https://www1.ncdc.noaa.gov/pub/data/ghcn/daily/by_year/"$SINGYR".csv.gz \
+	 --directory-prefix=./tmp_data
+
+    # decompress 
+    gunzip -c ./tmp_data/"$SINGYR.csv.gz" > ./tmp_data/wthr_data.csv
+
+    rm ./tmp_data/*gz
+
+    # filter weather data for only CA weather stations using awk
+    # saving fields station_id, date, weather data type, weather value
+    # create file to store filterd data
+    # append header to said file
+    echo 'station_id,date,wthr_dtype,wthr_val' > "$SINGYR"_ca_wthr.csv
+
+    all_ids=`cat temp_station_ids` # id #'s of weather stations in CA
+    for station_id in $all_ids ;  # loop: iterate over all station ids
+    do
+	awk -F , -v id="$station_id" \
+	    '$1==id {print $1","$2","$3","$4}' \
+	    ./tmp_data/wthr_data.csv >> "$SINGYR"_ca_wthr.csv
+    done
+
+    # remove temp directory and files
+    rm -r ./tmp_data
+    
+    
+fi
+
+
+if [ "$STRTYR" -ne "1" ]; then
+    echo multi year $STRTYR  $ENDYR
+
+    # filter weather data for only CA weather stations
+    # create file to store filtered data
+    # append header
+    echo 'station_id,date,wthr_dtype,wthr_val' > "$STRTYR"_"$ENDYR"_ca_wthr.csv
+    mkdir tmp_data
+    
+    # iterate over each year in the time range
+    i="$STRTYR"
+    while [ $i -le "$ENDYR" ]; do
+	echo Downloading weather data for year $i
+	# download each weather data to temp directory
+	eval wget -q https://www1.ncdc.noaa.gov/pub/data/ghcn/daily/by_year/"$i".csv.gz \
+	 --directory-prefix=./tmp_data
+	echo ....Done!
+	
+	# decompress and store weather data into temp file
+	echo Decompressing weather data for year $i
+	gunzip -c ./tmp_data/"$i".csv.gz > ./tmp_data/wthr_data.csv
+	rm ./tmp_data/"$i".csv.gz
+	echo ....Done!
+
+	echo Filtering weather data for year $i
+	# filter weather data for only CA weather stations using awk
+	# saving fields station_id, date, weather data type, weather value
+	all_ids=`cat temp_station_ids` # id #'s of weather stations in CA
+	for station_id in $all_ids ;  # loop: iterate over all station ids
+	do
+	    awk -F , -v id="$station_id" \
+		'$1==id {print $1","$2","$3","$4}' \
+		./tmp_data/wthr_data.csv >> "$STRTYR"_"$ENDYR"_ca_wthr.csv
+	done
+	echo ....Done!
+	
+	# remove weather data temp file
+	rm ./tmp_data/wthr_data.csv 
+	
+	i=$(($i+1))
+    done
+
+    # remove temp directory
+    rm -r ./tmp_data
+
+fi
+
