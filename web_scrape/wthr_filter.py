@@ -1,11 +1,9 @@
-#! /usr/bin/env python 
+#!/usr/bin/env python
 
 
 # Import libraries
 import pandas as pd
 import numpy as np
-import math
-
 
 
 # convert C to F rounded to 2 decimals
@@ -16,7 +14,7 @@ def cel_to_fahr(c):
 
 # function to load weather data
 def wthr_csv_to_df(wthr_csv):
-    ###import, clean, and sort data
+    # import, clean, and sort data
     sta_pts = pd.read_csv("./temp_stations.csv")
     wthr_pts = pd.read_csv(wthr_csv)
 
@@ -29,7 +27,7 @@ def wthr_csv_to_df(wthr_csv):
     # create a column of datetime entries
     sta_wthr['DateTime'] = sta_wthr['date'].apply(lambda x: pd.to_datetime(str(x), format='%Y%m%d'))
     sta_wthr['month'] = sta_wthr['DateTime'].dt.month
-    sta_wthr['year']  = sta_wthr['DateTime'].dt.year
+    sta_wthr['year']  = sta_wthr['DateTime'].dt.year 
 
     # compute mean wthr value in each county for a given year month
     # and wthr_dtype  (TMIN, TMAX)
@@ -38,7 +36,7 @@ def wthr_csv_to_df(wthr_csv):
                            .reset_index())
 
     # convert wthr_val from tenths of Celsius to Fahrenheit
-    wthr_grp_df['wthr_val'] = wthr_grp_df['wthr_val'].div(10).apply(cel_to_fahr)
+    wthr_grp_df['wthr_val'] = cel_to_fahr(wthr_grp_df['wthr_val'] / 10.)
 
     # convert to wide format using pivot
     wthr_grp_df = wthr_grp_df.pivot(index=['county', 'year', 'month'],
@@ -46,19 +44,17 @@ def wthr_csv_to_df(wthr_csv):
 
     wthr_grp_df = wthr_grp_df.reset_index().rename_axis(None, axis=1)
 
-    
     return wthr_grp_df
 
 
 if __name__ == "__main__":
     data_name = "2016_2020_ca_wthr.csv"
     sta_wthr = wthr_csv_to_df("./" + data_name)
-    print("Filtering by month:", data_name)
-    print("Done!")
+    # print("Filtering by month:", data_name)
+    # print("Done!")
     # print(sta_wthr.head())
-    
 
     # sanity check should have 58 counties
-    print("Number of unique counties present in data: ",
-          len(sta_wthr.county.unique()))
+    # print("Number of unique counties present in data: ",
+    #       len(sta_wthr.county.unique()))
     sta_wthr.to_csv('./2016_2020_ca_tmax_tmin_mnth.csv', index=False)
