@@ -1,15 +1,16 @@
-<!DOCTYPE html>
-<html lang="en">
-    <head>
-      <meta charset="utf-8">
-      {{ bokeh_css }}
-      {{ bokeh_js }}
-        <style>
-             {% include 'styles.css' %}
-        </style>
-    </head>
-    <body>
-      {{ plot_div|indent(8) }}
-      {{ plot_script|indent(8) }}
-    </body>
-</html>
+{% extends base %}
+
+{% block title %}CA Temp Map by County{% endblock %}
+
+{% block preamble %}
+<style>
+  @import url(https://fonts.googleapis.com/css?family=Noto+Sans);
+  body {
+    font-family: 'Noto Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    color: #808080;
+    background: #00000000;
+  }
+</style>
+{% endblock %}
